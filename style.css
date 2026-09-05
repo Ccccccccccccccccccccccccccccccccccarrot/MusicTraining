@@ -104,10 +104,17 @@ button{border:0}
 .row:last-child{border-bottom:0}.row .meta{color:var(--muted);font-size:13px}.row strong{font-size:16px}
 .bar{height:7px;border-radius:99px;background:rgba(23,23,21,.08);overflow:hidden;margin-top:8px}.bar > i{display:block;height:100%;background:var(--ink);border-radius:99px}
 .setting{padding:18px 20px;border-bottom:1px solid rgba(23,23,21,.06)}.setting:last-child{border:0}
-.setting label{display:flex;justify-content:space-between;align-items:center;gap:16px;font-weight:650}
+.setting label{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;font-weight:650}
 .setting small{display:block;margin-top:8px;color:var(--muted);line-height:1.5}
-.setting input[type="number"],.setting select{border:0;background:rgba(23,23,21,.06);border-radius:12px;padding:9px 12px;max-width:150px}
+.setting input[type="number"],.setting select{border:0;background:rgba(23,23,21,.06);border-radius:12px;padding:9px 12px}
+.setting input[type="number"]{max-width:150px}
+.setting label > select{min-width:190px;max-width:100%}
 .range-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.range-wrap select{width:100%;min-width:0;max-width:none}
+@media (max-width:390px){
+  .setting label > select{width:100%}
+  .range-wrap{grid-template-columns:1fr}
+}
 .danger{background:none;color:var(--bad);padding:16px 0;font-weight:650}
 .result{text-align:center;padding-top:48px}.result .big{font-size:56px;font-weight:800;letter-spacing:-.05em}.result .muted{color:var(--muted)}
 .empty{color:var(--muted);padding:24px 4px;line-height:1.6}
