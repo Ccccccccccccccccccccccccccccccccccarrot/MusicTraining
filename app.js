@@ -94,8 +94,9 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":
 
 let audioCtx=null;
 function initAudio(){
-  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  if(audioCtx.state==="suspended") audioCtx.resume();
+  if(!audioCtx || audioCtx.state==="closed") audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state!=="running") audioCtx.resume().catch(()=>{});
+  return audioCtx;
 }
 function playMidi(midi){
   initAudio();
@@ -192,15 +193,19 @@ function startQuiz(mode){
   }
   initAudio();
   session={mode,note:null,opts:[],answered:false,selected:null,correct:null};
-  route="quiz";nextQuestion();
+  route="quiz";nextQuestion(mode==="ear");
 }
-function nextQuestion(){
+function nextQuestion(playImmediately=false){
   if(state.daily[session.mode].done>=state.settings.dailyCount){route="result";render();return}
   session.note=weightedPick(session.note?.id);
   session.opts=optionsFor(session.note);
   session.answered=false;session.selected=null;session.correct=null;
   render();
-  if(session.mode==="ear") setTimeout(()=>playMidi(session.note.midi),180);
+  if(session.mode==="ear"){
+    // iOS requires the first audible source to start inside the user's tap event.
+    if(playImmediately) playMidi(session.note.midi);
+    else setTimeout(()=>playMidi(session.note.midi),180);
+  }
 }
 function answer(id){
   if(session.answered)return;
