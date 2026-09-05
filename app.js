@@ -26,7 +26,7 @@ function freshState(){
   LIBRARY.forEach(n=>weights[n.id]=0.5);
   return {
     weights,
-    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true,displayMode:"letter"},
+    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true,displayMode:"letter",volume:70},
     daily:{date:todayKey(),sight:{done:0,correct:0},ear:{done:0,correct:0}},
     history:[]
   };
@@ -121,9 +121,11 @@ function playMidi(midi){
   initAudio();
   const now=audioCtx.currentTime;
   const f=440*Math.pow(2,(midi-69)/12);
+  const volume=clamp(Number(state.settings.volume??70),0,100)/100;
+  if(volume===0) return;
   const master=audioCtx.createGain();
   master.gain.setValueAtTime(0.0001,now);
-  master.gain.exponentialRampToValueAtTime(.28,now+.015);
+  master.gain.exponentialRampToValueAtTime(.4*volume,now+.015);
   master.gain.exponentialRampToValueAtTime(.0001,now+1.45);
   master.connect(audioCtx.destination);
   [1,2,3].forEach((mul,idx)=>{
@@ -245,7 +247,15 @@ function quiz(){
   const title=session.mode==="sight"?"识谱":"听力";
   const stage=session.mode==="sight"
     ? `<div class="staff-card">${staffSvg(session.note)}</div>`
-    : `<div class="audio-stage"><button class="play" onclick="playMidi(${session.note.midi})">▶</button><div class="replay">点击可重复播放</div></div>`;
+    : `<div class="audio-stage">
+        <button class="play" aria-label="重复播放题目音" onclick="playMidi(${session.note.midi})">▶</button>
+        <div class="replay">点击可重复播放题目音</div>
+        <button class="reference-tone" onclick="playMidi(60)">中央 C（1）· 对照音 ▶</button>
+        <div class="volume-control">
+          <div class="volume-head"><label for="volumeSlider">音量</label><output id="volumeValue">${state.settings.volume}%</output></div>
+          <input id="volumeSlider" type="range" min="0" max="100" step="1" value="${state.settings.volume}" oninput="setVolume(this.value)" aria-label="播放音量">
+        </div>
+      </div>`;
   const feedback=session.answered && !session.correct ? `<div class="feedback">
       <div class="title">还不熟悉</div>
       <div class="answer">正确答案是 <strong>${noteLabelHtml(session.note)}</strong>。权重已从后台提高，下次更容易再遇到它。</div>
@@ -323,6 +333,12 @@ function setBool(k,v){
 function setCount(v){state.settings.dailyCount=clamp(Number(v)||20,5,100);save();render()}
 function setRange(k,v){state.settings[k]=v;save();render()}
 function setDisplayMode(v){state.settings.displayMode=v==="number"?"number":"letter";save();render()}
+function setVolume(v){
+  state.settings.volume=clamp(Number(v)||0,0,100);
+  const output=document.querySelector("#volumeValue");
+  if(output) output.textContent=`${state.settings.volume}%`;
+  save();
+}
 function resetProgress(){
   if(confirm("确定清空权重、答题记录和今日进度吗？")){
     state=freshState();save();render();
