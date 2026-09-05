@@ -2,6 +2,7 @@
 const STORAGE_KEY = "notetrainer-v01";
 const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
+const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
 const SEMITONES = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 
 function midiOf(name, octave){ return 12*(octave+1)+SEMITONES[name]; }
@@ -25,7 +26,7 @@ function freshState(){
   LIBRARY.forEach(n=>weights[n.id]=0.5);
   return {
     weights,
-    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true},
+    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true,displayMode:"letter"},
     daily:{date:todayKey(),sight:{done:0,correct:0},ear:{done:0,correct:0}},
     history:[]
   };
@@ -91,6 +92,24 @@ function recordAnswer(mode,note,correct){
 }
 function pct(c,d){return d?Math.round(c/d*100):0}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function displayNoteText(noteOrId){
+  const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
+  if(state.settings.displayMode!=="number") return n.id;
+  const offset=n.octave-4;
+  if(offset===0) return String(NUMBER_NAMES[n.name]);
+  return `${NUMBER_NAMES[n.name]}（${offset>0?"上":"下"}${Math.abs(offset)}点）`;
+}
+function noteLabelHtml(noteOrId){
+  const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
+  if(state.settings.displayMode!=="number") return escapeHtml(n.id);
+  const offset=n.octave-4;
+  const dots=Array.from({length:Math.abs(offset)},()=>'<i class="octave-dot"></i>').join("");
+  return `<span class="numbered-note" role="img" aria-label="${escapeHtml(displayNoteText(n))}">
+    <span class="octave-dots above" aria-hidden="true">${offset>0?dots:""}</span>
+    <span class="note-number" aria-hidden="true">${NUMBER_NAMES[n.name]}</span>
+    <span class="octave-dots below" aria-hidden="true">${offset<0?dots:""}</span>
+  </span>`;
+}
 
 let audioCtx=null;
 function initAudio(){
@@ -177,7 +196,7 @@ function home(){
     <button class="mode-card" onclick="startQuiz('ear')"><div><h2>听力训练</h2><p>${state.daily.ear.done} / ${state.settings.dailyCount} · 正确率 ${pct(state.daily.ear.correct,state.daily.ear.done)}%</p></div><div class="arrow">→</div></button>
     <div class="stats-row">
       <div class="stat"><b>${pct(state.daily.sight.correct+state.daily.ear.correct,total)}%</b><span>今日正确率</span></div>
-      <div class="stat"><b>${weakest().id}</b><span>当前最薄弱</span></div>
+      <div class="stat"><b>${noteLabelHtml(weakest())}</b><span>当前最薄弱</span></div>
     </div>
     ${nav()}
   </div>`;
@@ -191,7 +210,7 @@ function startQuiz(mode){
   if(state.daily[mode].done>=state.settings.dailyCount){
     route="result";session={mode};render();return;
   }
-  initAudio();
+  if(mode==="ear") initAudio();
   session={mode,note:null,opts:[],answered:false,selected:null,correct:null};
   route="quiz";nextQuestion(mode==="ear");
 }
@@ -229,15 +248,15 @@ function quiz(){
     : `<div class="audio-stage"><button class="play" onclick="playMidi(${session.note.midi})">▶</button><div class="replay">点击可重复播放</div></div>`;
   const feedback=session.answered && !session.correct ? `<div class="feedback">
       <div class="title">还不熟悉</div>
-      <div class="answer">正确答案是 <strong>${session.note.id}</strong>。权重已从后台提高，下次更容易再遇到它。</div>
-      ${session.mode==="ear"?`<div class="compare"><button onclick="playMidi(${parseNoteId(session.selected).name ? midiOf(parseNoteId(session.selected).name,parseNoteId(session.selected).octave):0})">你的答案 ${session.selected} ▶</button><button onclick="playMidi(${session.note.midi})">正确答案 ${session.note.id} ▶</button></div>`:""}
+      <div class="answer">正确答案是 <strong>${noteLabelHtml(session.note)}</strong>。权重已从后台提高，下次更容易再遇到它。</div>
+      ${session.mode==="ear"?`<div class="compare"><button onclick="playMidi(${parseNoteId(session.selected).name ? midiOf(parseNoteId(session.selected).name,parseNoteId(session.selected).octave):0})">你的答案 ${noteLabelHtml(session.selected)} ▶</button><button onclick="playMidi(${session.note.midi})">正确答案 ${noteLabelHtml(session.note)} ▶</button></div>`:""}
       <button class="primary" onclick="nextQuestion()">继续</button>
     </div>`:"";
   return `<div class="shell">
     <div class="quiz-head"><button class="back" onclick="go('home')">← 返回</button><div class="counter">${title} · ${Math.min(q,state.settings.dailyCount)} / ${state.settings.dailyCount}</div></div>
     <div class="prompt">${session.mode==="sight"?"这是哪个音？":"你听到的是哪个音？"}</div>
     ${stage}
-    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" onclick="answer('${n.id}')">${n.id}</button>`).join("")}</div>
+    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(displayNoteText(n))}" onclick="answer('${n.id}')">${noteLabelHtml(n)}</button>`).join("")}</div>
     ${feedback}
   </div>`;
 }
@@ -269,25 +288,29 @@ function stats(){
     <div class="list-card">${weak.map(n=>{
       const w=state.weights[n.id]??.5;
       const s=byNote[n.id]||{total:0,wrong:0};
-      return `<div class="row"><div style="flex:1"><strong>${n.id}</strong><div class="bar"><i style="width:${Math.round(w*100)}%"></i></div><div class="meta">练习 ${s.total} 次 · 错 ${s.wrong} 次</div></div><div>${Math.round(w*100)}%</div></div>`
+      return `<div class="row"><div style="flex:1"><strong>${noteLabelHtml(n)}</strong><div class="bar"><i style="width:${Math.round(w*100)}%"></i></div><div class="meta">练习 ${s.total} 次 · 错 ${s.wrong} 次</div></div><div>${Math.round(w*100)}%</div></div>`
     }).join("")}</div>
     ${nav()}
   </div>`;
 }
 function settings(){
-  const min=LIBRARY.find(n=>n.midi===state.settings.minMidi)?.id||"C4";
-  const max=LIBRARY.find(n=>n.midi===state.settings.maxMidi)?.id||"C6";
+  const min=LIBRARY.find(n=>n.midi===state.settings.minMidi)||LIBRARY.find(n=>n.id==="C4");
+  const max=LIBRARY.find(n=>n.midi===state.settings.maxMidi)||LIBRARY.find(n=>n.id==="C6");
   return `<div class="shell">
     <div class="topline"><div class="brand">NoteTrainer</div></div>
     <h1 class="section-title">设置</h1><p class="section-sub">第一版先练自然音。你可以控制谱号、音域和每日题量。</p>
     <div class="list-card">
       <div class="setting"><label>高音谱号 <input type="checkbox" ${state.settings.treble?"checked":""} onchange="setBool('treble',this.checked)"></label></div>
       <div class="setting"><label>低音谱号 <input type="checkbox" ${state.settings.bass?"checked":""} onchange="setBool('bass',this.checked)"></label></div>
+      <div class="setting"><label>音符显示 <select onchange="setDisplayMode(this.value)">
+        <option value="letter" ${state.settings.displayMode==="letter"?"selected":""}>音名（C4、D4）</option>
+        <option value="number" ${state.settings.displayMode==="number"?"selected":""}>简谱（1、2、3）</option>
+      </select></label><small>简谱以中央 C（C4）为不加点的 1，高低八度分别显示上点和下点。</small></div>
       <div class="setting"><label>每日每模式题量 <input type="number" min="5" max="100" step="5" value="${state.settings.dailyCount}" onchange="setCount(this.value)"></label><small>默认 20 题。改变后当天立即生效。</small></div>
       <div class="setting"><strong>练习音域</strong><div class="range-wrap">
-        <select onchange="setRange('minMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi<=state.settings.maxMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.minMidi?"selected":""}>最低 ${n.id}</option>`).join("")}</select>
-        <select onchange="setRange('maxMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi>=state.settings.minMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.maxMidi?"selected":""}>最高 ${n.id}</option>`).join("")}</select>
-      </div><small>当前 ${min} ～ ${max}</small></div>
+        <select onchange="setRange('minMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi<=state.settings.maxMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.minMidi?"selected":""}>最低 ${displayNoteText(n)}</option>`).join("")}</select>
+        <select onchange="setRange('maxMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi>=state.settings.minMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.maxMidi?"selected":""}>最高 ${displayNoteText(n)}</option>`).join("")}</select>
+      </div><small>当前 ${noteLabelHtml(min)} ～ ${noteLabelHtml(max)}</small></div>
     </div>
     <button class="danger" onclick="resetProgress()">重置全部学习记录</button>
     ${nav()}
@@ -299,6 +322,7 @@ function setBool(k,v){
 }
 function setCount(v){state.settings.dailyCount=clamp(Number(v)||20,5,100);save();render()}
 function setRange(k,v){state.settings[k]=v;save();render()}
+function setDisplayMode(v){state.settings.displayMode=v==="number"?"number":"letter";save();render()}
 function resetProgress(){
   if(confirm("确定清空权重、答题记录和今日进度吗？")){
     state=freshState();save();render();

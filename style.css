@@ -70,6 +70,14 @@ button{border:0}
 .option.good{background:rgba(53,104,75,.12);color:var(--good);border-color:rgba(53,104,75,.25)}
 .option.bad{background:rgba(164,83,74,.12);color:var(--bad);border-color:rgba(164,83,74,.25)}
 .option.dim{opacity:.42}
+.numbered-note{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:.9em;
+  margin:.42em .12em;line-height:1;vertical-align:middle
+}
+.octave-dots{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.08em}
+.octave-dots.above{bottom:calc(100% + .08em)}
+.octave-dots.below{top:calc(100% + .08em)}
+.octave-dot{display:block;width:.14em;height:.14em;border-radius:50%;background:currentColor}
 .feedback{margin-top:16px;padding:18px 20px;border-radius:22px;background:var(--card);box-shadow:var(--shadow)}
 .feedback .title{font-weight:760;margin-bottom:6px}.feedback .answer{color:var(--muted);font-size:14px;line-height:1.5}
 .primary{
