@@ -4,6 +4,8 @@ const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
 const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
 const SEMITONES = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const MIDI_MIN = 36; // C2: 下加两点的 1
+const MIDI_MAX = 95; // B6: 上加两点的 7
 
 function midiOf(name, octave){ return 12*(octave+1)+SEMITONES[name]; }
 function noteId(name, octave){ return `${name}${octave}`; }
@@ -14,7 +16,7 @@ function buildLibrary(){
   for(let octave=2; octave<=6; octave++){
     for(const name of NOTE_NAMES){
       const midi=midiOf(name,octave);
-      if(midi>=36 && midi<=84) arr.push({id:noteId(name,octave),name,octave,midi});
+      if(midi>=MIDI_MIN && midi<=MIDI_MAX) arr.push({id:noteId(name,octave),name,octave,midi});
     }
   }
   return arr;
