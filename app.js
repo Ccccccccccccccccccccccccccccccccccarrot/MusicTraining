@@ -1,5 +1,6 @@
 
 const STORAGE_KEY = "notetrainer-v01";
+const APP_VERSION = "0.2.0";
 const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
 const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
@@ -344,7 +345,20 @@ function settings(){
         <select onchange="setRange('maxMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi>=state.settings.minMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.maxMidi?"selected":""}>最高 ${displayNoteText(n)}</option>`).join("")}</select>
       </div><small>当前 ${noteLabelHtml(min)} ～ ${noteLabelHtml(max)}</small></div>
     </div>
+    <div class="list-card">
+      <div class="setting update-setting">
+        <div class="update-row"><div class="update-copy"><strong>应用版本</strong><div class="update-version">v${APP_VERSION}</div></div><button id="updateButton" class="update-button" onclick="checkForUpdate(this)">检查并更新</button></div>
+        <small id="updateStatus">更新只替换程序文件，不会清除学习记录和设置。</small>
+      </div>
+    </div>
     <button class="danger" onclick="resetProgress()">重置全部学习记录</button>
+    <div id="updateDialog" class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="updateDialogTitle" hidden>
+      <div class="update-dialog-card">
+        <h2 id="updateDialogTitle">更新成功</h2>
+        <p>新版本已经准备好，是否立即重启程序？</p>
+        <div class="update-dialog-actions"><button class="dialog-yes" onclick="restartAfterUpdate()">是</button><button class="dialog-no" onclick="closeUpdateDialog()">否</button></div>
+      </div>
+    </div>
     ${nav()}
   </div>`;
 }
@@ -361,6 +375,53 @@ function setVolume(v){
   if(output) output.textContent=`${state.settings.volume}%`;
   save();
 }
+async function checkForUpdate(button){
+  if(button?.disabled) return;
+  const status=document.querySelector("#updateStatus");
+  const setStatus=message=>{if(status) status.textContent=message};
+  if(button){button.disabled=true;button.textContent="检查中…"}
+  setStatus("正在连接服务器并检查程序文件…");
+  try{
+    const probe=await fetch(`./app.js?update=${Date.now()}`,{cache:"no-store"});
+    if(!probe.ok) throw new Error(`HTTP ${probe.status}`);
+    const remoteSource=await probe.text();
+    const remoteVersion=remoteSource.match(/const APP_VERSION\s*=\s*["']([^"']+)["']/)?.[1];
+    if(!remoteVersion) throw new Error("无法读取线上版本号");
+    if(remoteVersion===APP_VERSION){
+      setStatus(`当前已是最新版本（v${APP_VERSION}）。`);
+      if(button){button.disabled=false;button.textContent="检查并更新"}
+      return;
+    }
+    if("serviceWorker" in navigator){
+      const registration=await navigator.serviceWorker.getRegistration();
+      if(registration) await registration.update();
+    }
+    if("caches" in window){
+      const keys=await window.caches.keys();
+      await Promise.all(keys.filter(key=>key.startsWith("notetrainer-")).map(key=>window.caches.delete(key)));
+    }
+    setStatus(`更新成功。v${remoteVersion} 将在重启后生效。`);
+    if(button) button.textContent="更新已就绪";
+    showUpdateDialog();
+  }catch(error){
+    setStatus(`检查失败，请确认网络连接后重试。${error?.message?`（${error.message}）`:""}`);
+    if(button){button.disabled=false;button.textContent="重新检查"}
+  }
+}
+function showUpdateDialog(){
+  const dialog=document.querySelector("#updateDialog");
+  if(dialog){dialog.hidden=false;dialog.querySelector(".dialog-yes")?.focus()}
+}
+function closeUpdateDialog(){
+  const dialog=document.querySelector("#updateDialog");
+  if(dialog) dialog.hidden=true;
+}
+function restartAfterUpdate(){
+  sessionStorage.setItem("notetrainer-return-route","home");
+  const url=new URL(window.location.href);
+  url.searchParams.set("_update",Date.now());
+  window.location.replace(url.href);
+}
 function resetProgress(){
   if(confirm("确定清空权重、答题记录和今日进度吗？")){
     state=freshState();save();render();
@@ -375,6 +436,9 @@ function render(){
   else if(route==="settings") app.innerHTML=settings();
 }
 window.addEventListener("load",()=>{
+  const returnRoute=sessionStorage.getItem("notetrainer-return-route");
+  if(["home","stats","settings"].includes(returnRoute)) route=returnRoute;
+  sessionStorage.removeItem("notetrainer-return-route");
   render();
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
 });

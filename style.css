@@ -111,6 +111,17 @@ button{border:0}
 .setting label > select{min-width:190px;max-width:100%}
 .range-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .range-wrap select{width:100%;min-width:0;max-width:none}
+.update-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px;width:100%}
+.update-copy{min-width:0}
+.update-version{margin-top:5px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.update-button{flex:none;padding:7px 10px;border-radius:10px;background:var(--accent);color:white;font-size:13px;line-height:1.2;font-weight:680}
+.update-button:disabled{opacity:.55}
+.update-dialog[hidden]{display:none}
+.update-dialog{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;background:rgba(23,23,21,.3);backdrop-filter:blur(8px)}
+.update-dialog-card{width:min(100%,360px);padding:26px;border-radius:26px;background:var(--card);box-shadow:0 24px 70px rgba(0,0,0,.18)}
+.update-dialog-card h2{margin:0 0 9px;font-size:23px}.update-dialog-card p{margin:0;color:var(--muted);line-height:1.55}
+.update-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+.update-dialog-actions button{height:50px;border-radius:15px;font-weight:700}.dialog-no{background:rgba(23,23,21,.07);color:var(--ink)}.dialog-yes{background:var(--accent);color:white}
 @media (max-width:390px){
   .setting label > select{width:100%}
   .range-wrap{grid-template-columns:1fr}
