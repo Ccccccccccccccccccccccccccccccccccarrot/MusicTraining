@@ -1,6 +1,6 @@
 
 const STORAGE_KEY = "notetrainer-v01";
-const APP_VERSION = "0.2.1";
+const APP_VERSION = "0.2.3";
 const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
 const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
@@ -272,7 +272,10 @@ function optionClass(id){
 function quiz(){
   const q=state.daily[session.mode].done+1;
   const title=session.mode==="sight"?"识谱":"听力";
-  const showOptionStaff=state.settings.showStaffInOptions;
+  const useStaffLayout=state.settings.showStaffInOptions;
+  const showOptionStaff=state.settings.showStaffInOptions && (
+    session.mode==="ear" || (session.mode==="sight" && session.answered && !session.correct)
+  );
   const stage=session.mode==="sight"
     ? `<div class="staff-card">${staffSvg(session.note)}</div>`
     : `<div class="audio-stage">
@@ -294,7 +297,7 @@ function quiz(){
     <div class="quiz-head"><button class="back" onclick="go('home')">← 返回</button><div class="counter">${title} · ${Math.min(q,state.settings.dailyCount)} / ${state.settings.dailyCount}</div></div>
     <div class="prompt">${session.mode==="sight"?"这是哪个音？":"你听到的是哪个音？"}</div>
     ${stage}
-    <div class="options ${showOptionStaff?"staff-options":""}">${session.opts.map(n=>`<button class="option ${showOptionStaff?"staff-option":""} ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n,session.mode))}" onclick="answer('${n.id}')">${showOptionStaff?`<span class="option-staff" aria-hidden="true">${staffSvg(n)}</span>`:""}<span class="option-label">${answerNoteLabelHtml(n,session.mode)}</span></button>`).join("")}</div>
+    <div class="options ${useStaffLayout?"staff-options":""}">${session.opts.map(n=>`<button class="option ${useStaffLayout?"staff-option":""} ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n,session.mode))}" onclick="answer('${n.id}')">${showOptionStaff?`<span class="option-staff" aria-hidden="true">${staffSvg(n)}</span>`:""}<span class="option-label">${answerNoteLabelHtml(n,session.mode)}</span></button>`).join("")}</div>
     ${feedback}
   </div>`;
 }
@@ -340,7 +343,7 @@ function settings(){
     <div class="list-card">
       <div class="setting"><label>高音谱号 <input type="checkbox" ${state.settings.treble?"checked":""} onchange="setBool('treble',this.checked)"></label></div>
       <div class="setting"><label>低音谱号 <input type="checkbox" ${state.settings.bass?"checked":""} onchange="setBool('bass',this.checked)"></label></div>
-      <div class="setting"><label>选项显示五线谱 <input type="checkbox" ${state.settings.showStaffInOptions?"checked":""} onchange="setBool('showStaffInOptions',this.checked)"></label><small>同时作用于识谱和听力训练；开启后答案采用迷你五线谱加文字标注。</small></div>
+      <div class="setting"><label>选项显示五线谱 <input type="checkbox" ${state.settings.showStaffInOptions?"checked":""} onchange="setBool('showStaffInOptions',this.checked)"></label><small>听力训练在选项中直接显示；识谱训练仅在答错后显示，便于对照学习且不会提前提示答案。</small></div>
       <div class="setting"><label>音符显示 <select onchange="setDisplayMode(this.value)">
         <option value="letter" ${state.settings.displayMode==="letter"?"selected":""}>音名（C4、D4、E4）</option>
         <option value="number" ${state.settings.displayMode==="number"?"selected":""}>简谱（1、2、3）</option>
