@@ -1,6 +1,6 @@
 
 const STORAGE_KEY = "notetrainer-v01";
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.2.1";
 const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
 const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
