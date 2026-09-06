@@ -125,12 +125,12 @@ function noteLabelHtml(noteOrId){
     <span class="octave-dots below" aria-hidden="true">${offset<0?dots:""}</span>
   </span>`;
 }
-function answerNoteText(noteOrId){
+function answerNoteText(noteOrId,mode){
   const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
-  return state.settings.displayMode==="solfege"?SOLFEGE_NAMES[n.name]:displayNoteText(n);
+  return state.settings.displayMode==="solfege" && mode==="sight"?SOLFEGE_NAMES[n.name]:displayNoteText(n);
 }
-function answerNoteLabelHtml(noteOrId){
-  return state.settings.displayMode==="solfege"?escapeHtml(answerNoteText(noteOrId)):noteLabelHtml(noteOrId);
+function answerNoteLabelHtml(noteOrId,mode){
+  return state.settings.displayMode==="solfege"?escapeHtml(answerNoteText(noteOrId,mode)):noteLabelHtml(noteOrId);
 }
 
 let audioCtx=null;
@@ -288,7 +288,7 @@ function quiz(){
     <div class="quiz-head"><button class="back" onclick="go('home')">← 返回</button><div class="counter">${title} · ${Math.min(q,state.settings.dailyCount)} / ${state.settings.dailyCount}</div></div>
     <div class="prompt">${session.mode==="sight"?"这是哪个音？":"你听到的是哪个音？"}</div>
     ${stage}
-    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n))}" onclick="answer('${n.id}')">${answerNoteLabelHtml(n)}</button>`).join("")}</div>
+    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n,session.mode))}" onclick="answer('${n.id}')">${answerNoteLabelHtml(n,session.mode)}</button>`).join("")}</div>
     ${feedback}
   </div>`;
 }
