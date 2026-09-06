@@ -31,7 +31,7 @@ function freshState(){
   LIBRARY.forEach(n=>weights[n.id]=0.5);
   return {
     weights,
-    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true,displayMode:"letter",volume:70},
+    settings:{minMidi:48,maxMidi:84,dailyCount:20,treble:true,bass:true,displayMode:"letter",showStaffInOptions:false,volume:70},
     daily:{date:todayKey(),sight:{done:0,correct:0},ear:{done:0,correct:0}},
     history:[]
   };
@@ -186,12 +186,17 @@ function staffSvg(n){
   if(step>8){for(let s=10;s<=step;s+=2){ledgers.push(bottomY-s*half)}}
   // middle C ledger can be step -2 in treble or 12 in bass
   const ledgerLines=ledgers.map(ly=>`<line x1="184" y1="${ly}" x2="238" y2="${ly}" stroke="#252522" stroke-width="2"/>`).join("");
-  return `<svg viewBox="0 0 400 230" role="img" aria-label="五线谱音符">
+  const stemDown=step>4;
+  const stemX=stemDown?200:220;
+  const stemEnd=stemDown?y+60:y-60;
+  const contentTop=Math.min(0,y-14,stemEnd-8,...ledgers.map(ly=>ly-4));
+  const contentBottom=Math.max(230,y+14,stemEnd+8,...ledgers.map(ly=>ly+4));
+  return `<svg viewBox="0 ${contentTop} 400 ${contentBottom-contentTop}" role="img" aria-label="五线谱音符">
     ${lines}
     <text x="82" y="${clefY}" font-size="${staff==="treble"?88:70}" font-family="serif">${clef}</text>
     ${ledgerLines}
     <ellipse cx="210" cy="${y}" rx="12.5" ry="9" fill="#171715" transform="rotate(-15 210 ${y})"/>
-    <line x1="220" y1="${y-2}" x2="220" y2="${y-60}" stroke="#171715" stroke-width="3"/>
+    <line x1="${stemX}" y1="${stemDown?y+2:y-2}" x2="${stemX}" y2="${stemEnd}" stroke="#171715" stroke-width="3"/>
   </svg>`;
 }
 
@@ -267,6 +272,7 @@ function optionClass(id){
 function quiz(){
   const q=state.daily[session.mode].done+1;
   const title=session.mode==="sight"?"识谱":"听力";
+  const showOptionStaff=state.settings.showStaffInOptions;
   const stage=session.mode==="sight"
     ? `<div class="staff-card">${staffSvg(session.note)}</div>`
     : `<div class="audio-stage">
@@ -288,7 +294,7 @@ function quiz(){
     <div class="quiz-head"><button class="back" onclick="go('home')">← 返回</button><div class="counter">${title} · ${Math.min(q,state.settings.dailyCount)} / ${state.settings.dailyCount}</div></div>
     <div class="prompt">${session.mode==="sight"?"这是哪个音？":"你听到的是哪个音？"}</div>
     ${stage}
-    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n,session.mode))}" onclick="answer('${n.id}')">${answerNoteLabelHtml(n,session.mode)}</button>`).join("")}</div>
+    <div class="options ${showOptionStaff?"staff-options":""}">${session.opts.map(n=>`<button class="option ${showOptionStaff?"staff-option":""} ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n,session.mode))}" onclick="answer('${n.id}')">${showOptionStaff?`<span class="option-staff" aria-hidden="true">${staffSvg(n)}</span>`:""}<span class="option-label">${answerNoteLabelHtml(n,session.mode)}</span></button>`).join("")}</div>
     ${feedback}
   </div>`;
 }
@@ -334,6 +340,7 @@ function settings(){
     <div class="list-card">
       <div class="setting"><label>高音谱号 <input type="checkbox" ${state.settings.treble?"checked":""} onchange="setBool('treble',this.checked)"></label></div>
       <div class="setting"><label>低音谱号 <input type="checkbox" ${state.settings.bass?"checked":""} onchange="setBool('bass',this.checked)"></label></div>
+      <div class="setting"><label>选项显示五线谱 <input type="checkbox" ${state.settings.showStaffInOptions?"checked":""} onchange="setBool('showStaffInOptions',this.checked)"></label><small>同时作用于识谱和听力训练；开启后答案采用迷你五线谱加文字标注。</small></div>
       <div class="setting"><label>音符显示 <select onchange="setDisplayMode(this.value)">
         <option value="letter" ${state.settings.displayMode==="letter"?"selected":""}>音名（C4、D4、E4）</option>
         <option value="number" ${state.settings.displayMode==="number"?"selected":""}>简谱（1、2、3）</option>
