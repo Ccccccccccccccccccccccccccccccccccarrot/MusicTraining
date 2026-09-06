@@ -3,6 +3,8 @@ const STORAGE_KEY = "notetrainer-v01";
 const DAILY_COUNT_DEFAULT = 20;
 const NOTE_NAMES = ["C","D","E","F","G","A","B"];
 const NUMBER_NAMES = {C:1,D:2,E:3,F:4,G:5,A:6,B:7};
+const SOLFEGE_NAMES = {C:"do",D:"re",E:"mi",F:"fa",G:"sol",A:"la",B:"si"};
+const SUBSCRIPT_DIGITS = {0:"₀",1:"₁",2:"₂",3:"₃",4:"₄",5:"₅",6:"₆",7:"₇",8:"₈",9:"₉"};
 const SEMITONES = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const MIDI_MIN = 36; // C2: 下加两点的 1
 const MIDI_MAX = 95; // B6: 上加两点的 7
@@ -71,8 +73,16 @@ function weightedPick(excludeId=null){
   return pool[pool.length-1];
 }
 function optionsFor(correct){
-  const pool=availableNotes().filter(n=>n.id!==correct.id);
-  const near=pool.slice().sort((a,b)=>Math.abs(a.midi-correct.midi)-Math.abs(b.midi-correct.midi)).slice(0,10);
+  const pool=availableNotes()
+    .filter(n=>n.id!==correct.id && n.name!==correct.name)
+    .sort((a,b)=>Math.abs(a.midi-correct.midi)-Math.abs(b.midi-correct.midi));
+  const near=[];
+  const usedNames=new Set([correct.name]);
+  for(const n of pool){
+    if(usedNames.has(n.name)) continue;
+    usedNames.add(n.name);
+    near.push(n);
+  }
   const picks=[];
   while(picks.length<3 && near.length){
     const i=Math.floor(Math.random()*near.length);picks.push(near.splice(i,1)[0]);
@@ -94,16 +104,18 @@ function recordAnswer(mode,note,correct){
 }
 function pct(c,d){return d?Math.round(c/d*100):0}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function subscriptNumber(n){return String(n).split("").map(d=>SUBSCRIPT_DIGITS[d]||d).join("")}
 function displayNoteText(noteOrId){
   const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
-  if(state.settings.displayMode!=="number") return n.id;
+  if(state.settings.displayMode==="letter") return n.id;
+  if(state.settings.displayMode==="solfege") return `${SOLFEGE_NAMES[n.name]}${subscriptNumber(n.octave)}`;
   const offset=n.octave-4;
   if(offset===0) return String(NUMBER_NAMES[n.name]);
   return `${NUMBER_NAMES[n.name]}（${offset>0?"上":"下"}${Math.abs(offset)}点）`;
 }
 function noteLabelHtml(noteOrId){
   const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
-  if(state.settings.displayMode!=="number") return escapeHtml(n.id);
+  if(state.settings.displayMode!=="number") return escapeHtml(displayNoteText(n));
   const offset=n.octave-4;
   const dots=Array.from({length:Math.abs(offset)},()=>'<i class="octave-dot"></i>').join("");
   return `<span class="numbered-note" role="img" aria-label="${escapeHtml(displayNoteText(n))}">
@@ -111,6 +123,13 @@ function noteLabelHtml(noteOrId){
     <span class="note-number" aria-hidden="true">${NUMBER_NAMES[n.name]}</span>
     <span class="octave-dots below" aria-hidden="true">${offset<0?dots:""}</span>
   </span>`;
+}
+function answerNoteText(noteOrId){
+  const n=typeof noteOrId==="string"?{...parseNoteId(noteOrId),id:noteOrId}:noteOrId;
+  return state.settings.displayMode==="solfege"?SOLFEGE_NAMES[n.name]:displayNoteText(n);
+}
+function answerNoteLabelHtml(noteOrId){
+  return state.settings.displayMode==="solfege"?escapeHtml(answerNoteText(noteOrId)):noteLabelHtml(noteOrId);
 }
 
 let audioCtx=null;
@@ -252,7 +271,7 @@ function quiz(){
     : `<div class="audio-stage">
         <button class="play" aria-label="重复播放题目音" onclick="playMidi(${session.note.midi})">▶</button>
         <div class="replay">点击可重复播放题目音</div>
-        <button class="reference-tone" onclick="playMidi(60)">中央 C（1）· 对照音 ▶</button>
+        <button class="reference-tone" onclick="playMidi(60)">中央 C · ${noteLabelHtml("C4")} · 对照音 ▶</button>
         <div class="volume-control">
           <div class="volume-head"><label for="volumeSlider">音量</label><output id="volumeValue">${state.settings.volume}%</output></div>
           <input id="volumeSlider" type="range" min="0" max="100" step="1" value="${state.settings.volume}" oninput="setVolume(this.value)" aria-label="播放音量">
@@ -268,7 +287,7 @@ function quiz(){
     <div class="quiz-head"><button class="back" onclick="go('home')">← 返回</button><div class="counter">${title} · ${Math.min(q,state.settings.dailyCount)} / ${state.settings.dailyCount}</div></div>
     <div class="prompt">${session.mode==="sight"?"这是哪个音？":"你听到的是哪个音？"}</div>
     ${stage}
-    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(displayNoteText(n))}" onclick="answer('${n.id}')">${noteLabelHtml(n)}</button>`).join("")}</div>
+    <div class="options">${session.opts.map(n=>`<button class="option ${optionClass(n.id)}" aria-label="${escapeHtml(answerNoteText(n))}" onclick="answer('${n.id}')">${answerNoteLabelHtml(n)}</button>`).join("")}</div>
     ${feedback}
   </div>`;
 }
@@ -310,14 +329,15 @@ function settings(){
   const max=LIBRARY.find(n=>n.midi===state.settings.maxMidi)||LIBRARY.find(n=>n.id==="C6");
   return `<div class="shell">
     <div class="topline"><div class="brand">NoteTrainer</div></div>
-    <h1 class="section-title">设置</h1><p class="section-sub">第一版先练自然音。你可以控制谱号、音域和每日题量。</p>
+    <h1 class="section-title">设置</h1><p class="section-sub">你可以控制谱号、音域和每日题量。</p>
     <div class="list-card">
       <div class="setting"><label>高音谱号 <input type="checkbox" ${state.settings.treble?"checked":""} onchange="setBool('treble',this.checked)"></label></div>
       <div class="setting"><label>低音谱号 <input type="checkbox" ${state.settings.bass?"checked":""} onchange="setBool('bass',this.checked)"></label></div>
       <div class="setting"><label>音符显示 <select onchange="setDisplayMode(this.value)">
-        <option value="letter" ${state.settings.displayMode==="letter"?"selected":""}>音名（C4、D4）</option>
+        <option value="letter" ${state.settings.displayMode==="letter"?"selected":""}>音名（C4、D4、E4）</option>
         <option value="number" ${state.settings.displayMode==="number"?"selected":""}>简谱（1、2、3）</option>
-      </select></label><small>简谱以中央 C（C4）为不加点的 1，高低八度分别显示上点和下点。</small></div>
+        <option value="solfege" ${state.settings.displayMode==="solfege"?"selected":""}>唱名（do₄、re₄、mi₄）</option>
+      </select></label><small>简谱以中央 C（C4）为不加点的 1；唱名采用固定唱名，下标表示绝对音组，do₄ 是中央 C。</small></div>
       <div class="setting"><label>每日每模式题量 <input type="number" min="5" max="100" step="5" value="${state.settings.dailyCount}" onchange="setCount(this.value)"></label><small>默认 20 题。改变后当天立即生效。</small></div>
       <div class="setting"><strong>练习音域</strong><div class="range-wrap">
         <select onchange="setRange('minMidi',Number(this.value))">${LIBRARY.filter(n=>n.midi<=state.settings.maxMidi).map(n=>`<option value="${n.midi}" ${n.midi===state.settings.minMidi?"selected":""}>最低 ${displayNoteText(n)}</option>`).join("")}</select>
@@ -334,7 +354,7 @@ function setBool(k,v){
 }
 function setCount(v){state.settings.dailyCount=clamp(Number(v)||20,5,100);save();render()}
 function setRange(k,v){state.settings[k]=v;save();render()}
-function setDisplayMode(v){state.settings.displayMode=v==="number"?"number":"letter";save();render()}
+function setDisplayMode(v){state.settings.displayMode=["letter","number","solfege"].includes(v)?v:"letter";save();render()}
 function setVolume(v){
   state.settings.volume=clamp(Number(v)||0,0,100);
   const output=document.querySelector("#volumeValue");
