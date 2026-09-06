@@ -14,10 +14,5 @@
 - localStorage 本地持久化
 - PWA 离线缓存，可添加到 iPhone 主屏幕
 
-## 部署
-任何静态 HTTPS 托管均可。GitHub Pages、Cloudflare Pages、Netlify、Vercel 都可以。
-
-> 注意：GitHub Pages 不支持直接从私有仓库免费公开托管的所有场景，具体取决于账号/计划。若要保持源码私有又公开访问，可用支持私有仓库连接的部署平台。
-
 ## iPhone
 可以用 Safari 打开站点，点击“分享” → “添加到主屏幕”。
